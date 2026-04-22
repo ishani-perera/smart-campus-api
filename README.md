@@ -1,8 +1,8 @@
 # Smart Campus Sensor & Room Management API
 
 **Module:** 5COSC022W — Client-Server Architectures  
-**Technology Stack:** JAX-RS (Jersey) + Apache Tomcat WAR deployment  
-**Storage:** In-memory only using `ConcurrentHashMap` and thread-safe lists  
+**Technology Stack:** JAX-RS (Jersey) + Apache Tomcat 9 WAR deployment  
+**Storage:** In-memory only using `ConcurrentSkipListMap` and thread-safe lists  
 **Base URL:** `http://localhost:8080/smart-campus-api/api/v1`
 
 ---
@@ -28,12 +28,12 @@ The API follows the coursework rules:
 - uses **JAX-RS only**
 - uses **no Spring Boot**
 - uses **no database**
-- stores data in memory using Java collections (`ConcurrentHashMap`, `CopyOnWriteArrayList`)
+- stores data in memory using strict Java thread-safe collections (`ConcurrentSkipListMap`, `Collections.synchronizedList`)
 - supports nested resources via sub-resource locator pattern
 - returns JSON responses
 - includes custom exception mappers and request/response logging filters
 - is packaged as a **WAR** file
-- is deployed on **Apache Tomcat 10+**
+- is deployed on **Apache Tomcat 9**
 - does **not** use any embedded server such as Jetty or Grizzly
 
 > **Note:** This project does **not** use any database technology. All data is stored in-memory using thread-safe Java collections, as required by the coursework specification.
@@ -72,9 +72,9 @@ src/main/java/com/smartcampus
 
 ### Requirements
 
-- Java 17 or higher
+- Java 11 or higher
 - Maven 3.6+
-- Apache Tomcat 10+
+- Apache Tomcat 9
 
 ### Build the WAR File
 
@@ -237,23 +237,29 @@ curl -X POST http://localhost:8080/smart-campus-api/api/v1/sensors \
 
 ## 6. Postman Testing Guide
 
-Use this order in your video demonstration:
+Use this exact order in your video demonstration to cover all coursework marking criteria:
 
-1. `GET /api/v1` — verify HATEOAS discovery response
-2. `GET /api/v1/rooms` — list pre-loaded rooms
-3. `POST /api/v1/rooms` — create a new room
-4. `GET /api/v1/rooms/{roomId}` — retrieve the new room
-5. `DELETE` an empty room — expect `204 No Content`
-6. `DELETE` a room with sensors — expect `409 Conflict`
-7. `POST /api/v1/sensors` with invalid `roomId` — expect `422 Unprocessable Entity`
-8. `POST /api/v1/sensors` with valid data — expect `201 Created`
-9. `GET /api/v1/sensors?type=CO2` — verify filter works
-10. `GET /api/v1/sensors/{sensorId}/readings` — list readings (empty initially)
-11. `POST /api/v1/sensors/{sensorId}/readings` — add a reading
-12. `GET /api/v1/sensors/{sensorId}` — confirm `currentValue` was updated
-13. `POST` a reading to a sensor in `MAINTENANCE` or `OFFLINE` — expect `403 Forbidden`
-14. `POST` with `Content-Type: text/plain` — expect `415 Unsupported Media Type`
-15. `GET /api/v1/unknown` — expect JSON `404 Not Found`
+**Part 1: Setup & Discovery (5 Marks)**
+1. `GET /api/v1` — verify HATEOAS discovery response metadata.
+
+**Part 2: Room Management (20 Marks)**
+2. `GET /api/v1/rooms` — list pre-loaded rooms (`LIB-301` and `LAB-101`).
+3. `POST /api/v1/rooms` — create a new room (e.g., `ROOM-500`).
+4. `DELETE /api/v1/rooms/LIB-301` — try to delete a room with sensors; expect `409 Conflict`.
+5. `DELETE /api/v1/rooms/ROOM-500` — delete the empty room you just created; expect `204 No Content`.
+
+**Part 3: Sensor Operations & Linking (20 Marks)**
+6. `POST /api/v1/sensors` (with `roomId` = `INVALID-ROOM`) — trigger dependency validation; expect `422 Unprocessable Entity`.
+7. `POST /api/v1/sensors` (with `roomId` = `LAB-101`) — register a valid sensor (e.g., `SEN-901`).
+8. `GET /api/v1/sensors?type=CO2` — demonstrate query parameter filtering mechanism.
+
+**Part 4: Deep Nesting & Side Effects (20 Marks)**
+9. `GET /api/v1/sensors/TEMP-001/readings` — retrieve history for a specific sensor.
+10. `POST /api/v1/sensors/TEMP-001/readings` — add a new reading.
+11. `GET /api/v1/sensors/TEMP-001` — prove the `currentValue` property was synced in the parent sensor.
+
+**Part 5: Advanced Error Handling (30 Marks)**
+12. `POST /api/v1/sensors/OCC-001/readings` — try to add reading to a sensor in `MAINTENANCE` state; expect `403 Forbidden`.
 
 ---
 
@@ -276,9 +282,9 @@ All error responses use this consistent JSON structure:
 | `403 Forbidden` | Reading posted to `MAINTENANCE`/`OFFLINE` sensor | `SensorUnavailableExceptionMapper` |
 | `404 Not Found` | Resource or route does not exist | `NotFoundExceptionMapper` |
 | `405 Method Not Allowed` | Wrong HTTP method on a valid path | `MethodNotAllowedMapper` |
-| `409 Conflict` | Deleting a room with sensors, or duplicate ID | `RoomNotEmptyExceptionMapper` |
+| `409 Conflict` | Deleting a room with sensors, or duplicate ID | `ActiveSensorConflictMapper` |
 | `415 Unsupported Media Type` | Wrong `Content-Type` header | `WebApplicationExceptionMapper` |
-| `422 Unprocessable Entity` | `roomId` references a non-existent room | `LinkedResourceNotFoundExceptionMapper` |
+| `422 Unprocessable Entity` | `roomId` references a non-existent room | `InvalidRoomReferenceMapper` |
 | `500 Internal Server Error` | Unexpected runtime error (stack trace suppressed) | `GlobalExceptionMapper` |
 
 > Stack traces are **never** exposed to external clients. They are logged server-side only, in accordance with secure API design principles.
@@ -307,7 +313,7 @@ Benefits of filter-based logging:
 
 ### Part 1.1 — Resource Lifecycle
 
-The default lifecycle of a JAX-RS resource class is request-scoped: a new instance is created for each incoming HTTP request, so instance variables cannot hold shared state. This project stores all shared state (rooms, sensors, readings) in a singleton `DataStore`, initialized once at JVM class-load time. Thread safety is provided by `ConcurrentHashMap` for top-level stores, `CopyOnWriteArrayList` for per-sensor reading lists, and `computeIfAbsent()` for atomic initialization.
+The default lifecycle of a JAX-RS resource class is request-scoped: a new instance is created for each incoming HTTP request, so instance variables cannot hold shared state. This project stores all shared state (rooms, sensors, readings) in a singleton `DataStore`, initialized once at JVM class-load time. Thread safety is provided by strict Java collections such as `ConcurrentSkipListMap` for top-level stores, `Collections.synchronizedList` for per-sensor reading lists, and synchronized blocks during concurrent updates to ensure atomic modifications without data loss.
 
 ### Part 1.2 — Why HATEOAS Matters
 
@@ -371,5 +377,5 @@ This API satisfies all coursework requirements for:
 - Structured JSON error handling with semantically accurate HTTP status codes
 - Global exception mapping with no stack trace exposure
 - Request/response logging via JAX-RS filter (zero resource-class changes)
-- In-memory storage using thread-safe Java collections (no database)
-- WAR deployment on Apache Tomcat 10+
+- In-memory storage using strict thread-safe Java collections (no database)
+- WAR deployment specifically bundled using Java EE 8 `javax` libraries for **Apache Tomcat 9**
