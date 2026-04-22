@@ -3,10 +3,10 @@ package com.smartcampus.mapper;
 import com.smartcampus.exception.SensorUnavailableException;
 import com.smartcampus.model.ErrorResponse;
 
-import jakarta.ws.rs.ext.ExceptionMapper;
-import jakarta.ws.rs.ext.Provider;
-import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
+import javax.ws.rs.ext.ExceptionMapper;
+import javax.ws.rs.ext.Provider;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 
 /**
  * Part 5.3 — Maps SensorUnavailableException to HTTP 403 Forbidden.

@@ -1,9 +1,9 @@
 package com.smartcampus.util;
 
-import com.smartcampus.model.ErrorResponse;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 
-import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
+import com.smartcampus.model.ErrorResponse;
 
 /**
  * Small helper for building consistent JSON responses.
