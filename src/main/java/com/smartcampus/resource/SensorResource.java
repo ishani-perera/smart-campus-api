@@ -24,7 +24,7 @@ import com.smartcampus.service.DataStore;
 import com.smartcampus.util.ApiResponses;
 
 /**
- * Manages the /api/v1/sensors collection.
+ * Manages the /api/v1/sensors collections.
  */
 @Path("/sensors")
 @Produces(MediaType.APPLICATION_JSON)
