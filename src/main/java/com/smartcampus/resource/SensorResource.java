@@ -1,13 +1,5 @@
 package com.smartcampus.resource;
 
-import com.smartcampus.exception.LinkedResourceNotFoundException;
-import com.smartcampus.model.Sensor;
-import com.smartcampus.service.DataStore;
-import com.smartcampus.util.ApiResponses;
-
-import javax.ws.rs.*;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -15,6 +7,22 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.stream.Collectors;
+
+import javax.ws.rs.Consumes;
+import javax.ws.rs.GET;
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+
+import com.smartcampus.exception.LinkedResourceNotFoundException;
+import com.smartcampus.model.Sensor;
+import com.smartcampus.service.DataStore;
+import com.smartcampus.util.ApiResponses;
+
 
 /**
  * Manages the /api/v1/sensors collection.
@@ -106,5 +114,11 @@ public class SensorResource {
     @Path("/{sensorId}/readings")
     public SensorReadingResource getReadingResource(@PathParam("sensorId") String sensorId) {
         return new SensorReadingResource(sensorId);
+    }
+
+    @GET
+    @Path("/debug/error")
+    public Response triggerServerError() {
+        throw new RuntimeException("Forced demo error for GlobalExceptionMapper testing.");
     }
 }
